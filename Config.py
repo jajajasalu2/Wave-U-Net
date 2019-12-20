@@ -6,8 +6,8 @@ config_ingredient = Ingredient("cfg")
 @config_ingredient.config
 def cfg():
     # Base configuration
-    model_config = {"musdb_path" : "/mnt/windaten/Datasets/MUSDB18/", # SET MUSDB PATH HERE, AND SET CCMIXTER PATH IN CCMixter.xml
-                    "estimates_path" : "/mnt/windaten/Source_Estimates", # SET THIS PATH TO WHERE YOU WANT SOURCE ESTIMATES PRODUCED BY THE TRAINED MODEL TO BE SAVED. Folder itself must exist!
+    model_config = {"musdb_path" : "/home/hpc4/Downloads/dataset_speech/training_set", # SET MUSDB PATH HERE, AND SET CCMIXTER PATH IN CCMixter.xml
+                    "estimates_path" : "/home/hpc4/Downloads/dataset_speech/source_estimates", # SET THIS PATH TO WHERE YOU WANT SOURCE ESTIMATES PRODUCED BY THE TRAINED MODEL TO BE SAVED. Folder itself must exist!
                     "data_path" : "data", # Set this to where the preprocessed dataset should be saved
 
                     "model_base_dir" : "checkpoints", # Base folder for model checkpoints
@@ -40,12 +40,7 @@ def cfg():
     experiment_id = np.random.randint(0,1000000)
 
     # Set output sources
-    if model_config["task"] == "multi_instrument":
-        model_config["source_names"] = ["bass", "drums", "other", "vocals"]
-    elif model_config["task"] == "voice":
-        model_config["source_names"] = ["accompaniment", "vocals"]
-    else:
-        raise NotImplementedError
+    model_config["source_names"] = ["source_1", "source_2"]
     model_config["num_sources"] = len(model_config["source_names"])
     model_config["num_channels"] = 1 if model_config["mono_downmix"] else 2
 

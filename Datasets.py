@@ -2,6 +2,7 @@ import glob
 import os.path
 import random
 from multiprocessing import Process
+import pprint
 
 import Utils
 
@@ -42,7 +43,7 @@ def _int64_feature(value):
 
 def write_records(sample_list, model_config, input_shape, output_shape, records_path):
     # Writes samples in the given list as TFrecords into a given path, using the current model config and in/output shapes
-
+    pp = pprint.PrettyPrinter(indent=4)
     # Compute padding
     if (input_shape[1] - output_shape[1]) % 2 != 0:
         print("WARNING: Required number of padding of " + str(input_shape[1] - output_shape[1]) + " is uneven!")
@@ -60,7 +61,7 @@ def write_records(sample_list, model_config, input_shape, output_shape, records_
             audio_tracks = dict()
 
             for key in all_keys:
-                audio, _ = Utils.load(sample[key], sr=model_config["expected_sr"], mono=model_config["mono_downmix"])
+                audio, _ = Utils.load(str(sample[key]), sr=model_config["expected_sr"], mono=model_config["mono_downmix"])
 
                 if not model_config["mono_downmix"] and audio.shape[1] == 1:
                     print("WARNING: Had to duplicate mono track to generate stereo")
@@ -147,13 +148,6 @@ def get_dataset(model_config, input_shape, output_shape, partition):
         dataset["valid"] = [dsd_train[i] for i in val_idx]
         dataset["test"] = dsd_test
 
-        # MUSDB base dataset loaded now, now create task-specific dataset based on that
-        if model_config["task"] == "voice":
-            # Prepare CCMixter
-            print("Preparing CCMixter dataset!")
-            ccm = getCCMixter("CCMixter.xml")
-            dataset["train"].extend(ccm)
-
         # Convert audio files into TFRecords now
 
         # The dataset structure is a dictionary with "train", "valid", "test" keys, whose entries are lists, where each element represents a song.
@@ -174,6 +168,7 @@ def get_dataset(model_config, input_shape, output_shape, partition):
 
             part_entries = int(np.ceil(float(len(sample_list) / float(num_cores))))
             processes = list()
+
             for core in range(num_cores):
                 train_filename = os.path.join(partition_folder, str(core) + "_")  # address to save the TFRecords file
                 sample_list_subset = sample_list[core * part_entries:min((core + 1) * part_entries, len(sample_list))]
@@ -219,7 +214,9 @@ def get_path(db_path, instrument_node):
     return db_path + os.path.sep + instrument_node.xpath("./relativeFilepath")[0].text
 
 def getMUSDB(database_path):
-    mus = musdb.DB(root_dir=database_path, is_wav=False)
+    mus = musdb.DB(root_dir=database_path,
+                   setup_file=os.path.join(os.getcwd(), "mus.yaml"),
+                   is_wav=True)
 
     subsets = list()
 
@@ -229,49 +226,11 @@ def getMUSDB(database_path):
 
         # Go through tracks
         for track in tracks:
-            # Skip track if mixture is already written, assuming this track is done already
-            track_path = track.path[:-4]
-            mix_path = track_path + "_mix.wav"
-            acc_path = track_path + "_accompaniment.wav"
-            if os.path.exists(mix_path):
-                print("WARNING: Skipping track " + mix_path + " since it exists already")
-
-                # Add paths and then skip
-                paths = {"mix" : mix_path, "accompaniment" : acc_path}
-                paths.update({key : track_path + "_" + key + ".wav" for key in ["bass", "drums", "other", "vocals"]})
-
-                samples.append(paths)
-
-                continue
-
-            rate = track.rate
-
-            # Go through each instrument
-            paths = dict()
-            stem_audio = dict()
-            for stem in ["bass", "drums", "other", "vocals"]:
-                path = track_path + "_" + stem + ".wav"
-                audio = track.targets[stem].audio
-                soundfile.write(path, audio, rate, "PCM_16")
-                stem_audio[stem] = audio
-                paths[stem] = path
-
-            # Add other instruments to form accompaniment
-            acc_audio = np.clip(sum([stem_audio[key] for key in list(stem_audio.keys()) if key != "vocals"]), -1.0, 1.0)
-            soundfile.write(acc_path, acc_audio, rate, "PCM_16")
-            paths["accompaniment"] = acc_path
-
-            # Create mixture
-            mix_audio = track.audio
-            soundfile.write(mix_path, mix_audio, rate, "PCM_16")
-            paths["mix"] = mix_path
-
-            diff_signal = np.abs(mix_audio - acc_audio - stem_audio["vocals"])
-            print("Maximum absolute deviation from source additivity constraint: " + str(np.max(diff_signal)))# Check if acc+vocals=mix
-            print("Mean absolute deviation from source additivity constraint:    " + str(np.mean(diff_signal)))
-
+            track_path = track.path
+            source1_path = track.sources['source_1']
+            source2_path = track.sources['source_2']
+            paths = {"mix" : track_path, "source_1": source1_path, "source_2": source2_path}
             samples.append(paths)
-
         subsets.append(samples)
 
     return subsets

@@ -1,0 +1,25 @@
+sample-url: https://zenodo.org/api/files/1ff52183-071a-4a59-923f-7a31c4762d43/MUSDB18-7-STEMS.zip
+
+# Define the Input sources for each track
+sources:
+    source_1: source-01.wav
+    source_2: source-02.wav
+
+# Additionally provide the artistic mix
+mixture:
+    mix.wav
+
+stem_ids:
+    mixture: 0
+    source_1: 1
+    source_2: 2
+
+# Define output targets to be tested using linear mixtures
+targets:
+    source_1:
+        source_1: 1
+    source_2:
+        source_2: 1
+    linear_mixture:
+        source_1: 1
+        source_2: 1
